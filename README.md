@@ -137,7 +137,6 @@ Gemini / Vertex AI:
 GOOGLE_CLOUD_PROJECT=my-gcp-project
 GOOGLE_CLOUD_LOCATION=global
 GOOGLE_GENAI_USE_VERTEXAI=true
-NANO_BANANA_MODEL=gemini-3.1-flash-image-preview
 ```
 
 Gemini API key mode:

@@ -270,14 +270,6 @@ async function buildProfileOverrides(
     }
   }
 
-  if (resolved.provider === 'gemini') {
-    return {
-      ...base,
-      promptModel: process.env.GEMINI_PROMPT_MODEL || process.env.NANO_BANANA_MODEL,
-      imageModel: process.env.GEMINI_IMAGE_MODEL || process.env.NANO_BANANA_MODEL,
-    }
-  }
-
   return base
 }
 
