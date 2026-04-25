@@ -30,17 +30,30 @@ type ResponsePart = {
   text?: string
   inlineData?: InlineData
   inline_data?: InlineData
+  [key: string]: unknown
 }
 
 type GenerateResponseLike = {
-  text?: string
   parts?: ResponsePart[]
   candidates?: Array<{
+    finishReason?: string
+    finish_reason?: string
     content?: {
       parts?: ResponsePart[]
     }
   }>
+  promptFeedback?: {
+    blockReason?: string
+    block_reason?: string
+  }
+  prompt_feedback?: {
+    blockReason?: string
+    block_reason?: string
+  }
 }
+
+const GEMINI_NON_TEXT_WARNING = 'there are non-text parts'
+const GEMINI_WARNING_FILTER_FLAG = Symbol.for('visual-prompt-kit.gemini-warning-filter-installed')
 
 function asGeminiCredentials(value: unknown): GeminiCredentials {
   return typeof value === 'object' && value !== null ? (value as GeminiCredentials) : {}
@@ -78,29 +91,93 @@ function createClient(input: PromptProviderRequest | ImageProviderRequest): Goog
   })
 }
 
+function installGeminiWarningFilter(): void {
+  const globalState = globalThis as typeof globalThis & {
+    [GEMINI_WARNING_FILTER_FLAG]?: boolean
+  }
+
+  if (globalState[GEMINI_WARNING_FILTER_FLAG]) {
+    return
+  }
+
+  globalState[GEMINI_WARNING_FILTER_FLAG] = true
+  const originalWarn = console.warn.bind(console)
+
+  console.warn = (...args: unknown[]) => {
+    const first = args[0]
+    if (
+      typeof first === 'string' &&
+      first.includes(GEMINI_NON_TEXT_WARNING) &&
+      first.includes('returning concatenation of all text parts')
+    ) {
+      return
+    }
+
+    originalWarn(...args)
+  }
+}
+
 function getParts(response: unknown): ResponsePart[] {
   const typedResponse = response as GenerateResponseLike
   if (Array.isArray(typedResponse.parts)) {
     return typedResponse.parts
   }
 
-  return typedResponse.candidates?.[0]?.content?.parts ?? []
+  return typedResponse.candidates?.flatMap(candidate => candidate.content?.parts ?? []) ?? []
+}
+
+function getTextParts(response: unknown): string[] {
+  return getParts(response)
+    .map(part => part.text?.trim() ?? '')
+    .filter(Boolean)
+}
+
+function getResponseDiagnostics(response: unknown): string {
+  const typedResponse = response as GenerateResponseLike
+  const parts = getParts(response)
+  const partSummary = parts
+    .map(part => {
+      const inlineData = part.inlineData || part.inline_data
+      if (inlineData) {
+        const mimeType = inlineData.mimeType || inlineData.mime_type || 'unknown'
+        return `inlineData(mimeType=${mimeType}, hasData=${inlineData.data ? 'true' : 'false'})`
+      }
+
+      if (typeof part.text === 'string') {
+        return 'text'
+      }
+
+      const keys = Object.keys(part)
+      return keys.length > 0 ? keys.join('+') : 'empty'
+    })
+    .join(', ')
+  const text = getTextParts(response)
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .slice(0, 500)
+  const finishReasons =
+    typedResponse.candidates
+      ?.map(candidate => candidate.finishReason || candidate.finish_reason)
+      .filter(Boolean)
+      .join(', ') ?? ''
+  const promptFeedback = typedResponse.promptFeedback || typedResponse.prompt_feedback
+  const blockReason = promptFeedback?.blockReason || promptFeedback?.block_reason
+
+  return [
+    partSummary ? `parts=[${partSummary}]` : 'parts=[]',
+    text ? `text="${text}"` : undefined,
+    finishReasons ? `finishReasons=[${finishReasons}]` : undefined,
+    blockReason ? `promptBlockReason=${blockReason}` : undefined,
+  ]
+    .filter(Boolean)
+    .join('; ')
 }
 
 function extractText(response: unknown): string {
-  const typedResponse = response as GenerateResponseLike
-  if (typeof typedResponse.text === 'string' && typedResponse.text.trim().length > 0) {
-    return typedResponse.text.trim()
-  }
-
-  const text = getParts(response)
-    .map(part => part.text?.trim() ?? '')
-    .filter(Boolean)
-    .join('\n')
-    .trim()
+  const text = getTextParts(response).join('\n').trim()
 
   if (!text) {
-    throw new Error('Gemini prompt generation returned no text output.')
+    throw new Error(`Gemini prompt generation returned no text output. ${getResponseDiagnostics(response)}`)
   }
 
   return text
@@ -164,7 +241,7 @@ async function generateImages(input: ImageProviderRequest): Promise<ImageProvide
       }
 
       if (images.length === imageCountBeforeRequest) {
-        throw new Error('Gemini image generation returned no image data.')
+        throw new Error(`Gemini image generation returned no image data. ${getResponseDiagnostics(response)}`)
       }
     }
 
@@ -173,6 +250,8 @@ async function generateImages(input: ImageProviderRequest): Promise<ImageProvide
 }
 
 export function createGeminiProvider(): VisualGenerationProvider {
+  installGeminiWarningFilter()
+
   return {
     name: 'gemini',
     generatePrompt,

@@ -6,6 +6,8 @@
     "dir": "./artifacts"
   },
   "generation": {
+    "renderAttempts": 3,
+    "renderRetryDelayMs": 2000,
     "defaultProfile": "gemini",
     "profiles": {
       "gemini": {

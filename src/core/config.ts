@@ -67,6 +67,22 @@ function parseGenerationConfig(value: unknown, path: string): GenerationConfig |
     throw new Error(`Expected object at ${path}.profiles.`)
   }
 
+  const renderAttempts = value.renderAttempts
+  if (
+    renderAttempts !== undefined &&
+    (typeof renderAttempts !== 'number' || !Number.isInteger(renderAttempts) || renderAttempts < 1)
+  ) {
+    throw new Error(`Expected positive integer at ${path}.renderAttempts.`)
+  }
+
+  const renderRetryDelayMs = value.renderRetryDelayMs
+  if (
+    renderRetryDelayMs !== undefined &&
+    (typeof renderRetryDelayMs !== 'number' || !Number.isInteger(renderRetryDelayMs) || renderRetryDelayMs < 0)
+  ) {
+    throw new Error(`Expected non-negative integer at ${path}.renderRetryDelayMs.`)
+  }
+
   const profiles =
     profilesValue === undefined
       ? undefined
@@ -78,6 +94,8 @@ function parseGenerationConfig(value: unknown, path: string): GenerationConfig |
         )
 
   return {
+    renderAttempts,
+    renderRetryDelayMs,
     defaultProfile: typeof value.defaultProfile === 'string' ? value.defaultProfile : undefined,
     profiles,
   }

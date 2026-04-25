@@ -36,6 +36,8 @@ Provider configuration is profile-based:
 ```jsonc
 {
   "generation": {
+    "renderAttempts": 3,
+    "renderRetryDelayMs": 2000,
     "defaultProfile": "gemini",
     "profiles": {
       "gemini": {
@@ -62,6 +64,10 @@ Common fields are shared across providers:
 - `options`
 
 `model` is a shortcut for setting both prompt and image models. Provider-specific fields belong in `options`.
+
+`renderAttempts` and `renderRetryDelayMs` define the render retry policy. They apply to prompt generation during the `render` command and to each requested image. The `prompt` command still performs a single prompt generation request. Defaults are `3` attempts and `2000` milliseconds.
+
+The core API stays silent by default. Consumers that need diagnostics can pass `onRetry` to receive retry events; the CLI uses this hook to print retry notices to stderr. Batch retry events include `artifactIndex` and `artifactCount` so logs can be tied back to a specific artifact.
 
 Resolution order:
 
@@ -103,6 +109,12 @@ Use `--output <dir>` to place all artifact directories under a specific root:
 
 ```bash
 vpk render --output ./runs --count 5 --images 3
+```
+
+Render retries are applied to the prompt step and then per requested image. With `--images 3` and `--render-attempts 5`, the prompt request and each image request can be tried up to five times before the artifact is marked failed or partially successful.
+
+```bash
+vpk render --output ./runs --count 20 --images 2 --render-attempts 5 --render-retry-delay-ms 3000
 ```
 
 ## Artifact Manifest

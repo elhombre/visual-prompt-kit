@@ -64,6 +64,8 @@ Example config:
     "dir": "./artifacts"
   },
   "generation": {
+    "renderAttempts": 3,
+    "renderRetryDelayMs": 2000,
     "defaultProfile": "gemini",
     "profiles": {
       "gemini": {
@@ -117,6 +119,12 @@ Create five independent artifacts with three images each:
 vpk render --project ./examples/urban-scenes --output ./runs --count 5 --images 3 --continue-on-error
 ```
 
+Override render retry policy for a quota-sensitive batch:
+
+```bash
+vpk render --project ./examples/urban-scenes --output ./runs --count 20 --images 2 --render-attempts 5 --render-retry-delay-ms 3000 --continue-on-error
+```
+
 Common options:
 
 - `--profile <name>`: generation profile from `project.jsonc`.
@@ -125,6 +133,8 @@ Common options:
 - `--output <dir>`: artifact root directory. Defaults to the current working directory.
 - `--count <n>`: create independent artifact directories.
 - `--images <n>`: create multiple images inside each render artifact.
+- `--render-attempts <n>`: attempts for prompt generation during `render`, and for each rendered image. Defaults to `3`.
+- `--render-retry-delay-ms <n>`: delay between render retry attempts. Defaults to `2000`.
 - `--unique`: add an anti-repetition block from similar prior artifact manifests.
 
 ## Environment
@@ -195,6 +205,13 @@ const result = await runVisualGeneration({
     },
   },
   imagesPerArtifact: 2,
+  renderAttempts: 3,
+  renderRetryDelayMs: 2000,
+  onRetry: event => {
+    const artifact =
+      event.artifactIndex === undefined ? '' : `Artifact ${event.artifactIndex + 1}/${event.artifactCount}: `
+    console.warn(`${artifact}retrying ${event.stage} after attempt ${event.attempt}/${event.attempts}: ${event.errorMessage}`)
+  },
 })
 
 console.log(result.artifactDirectory)
@@ -218,9 +235,13 @@ const batch = await runVisualBatch({
   },
   artifactCount: 5,
   imagesPerArtifact: 3,
+  renderAttempts: 3,
+  renderRetryDelayMs: 2000,
   continueOnError: true,
 })
 ```
+
+The CLI prints retry notices to stderr. In batch runs, retry lines include the artifact position, for example `Artifact 3/5`. Library callers can pass `onRetry` to observe retry events without coupling the core API to console output.
 
 Core-only imports:
 

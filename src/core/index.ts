@@ -35,6 +35,7 @@ export type {
   PromptProviderResult,
   PromptUniquenessResult,
   ProviderRegistry,
+  RenderRetryEvent,
   ResolvedGenerationProfile,
   ResolvedPromptContext,
   RunManifest,

@@ -8,13 +8,19 @@ import { preparePromptGeneration } from './prepare.js'
 import { resolveGenerationProfile } from './profiles.js'
 import type {
   GeneratedImage,
+  ResolvedGenerationProfile,
   RunManifest,
+  RenderRetryEvent,
   RunStatus,
   RunVisualBatchInput,
   RunVisualGenerationInput,
   VisualBatchResult,
+  VisualGenerationProvider,
   VisualGenerationRunResult,
 } from './types.js'
+
+const DEFAULT_RENDER_ATTEMPTS = 3
+const DEFAULT_RENDER_RETRY_DELAY_MS = 2000
 
 function positiveInteger(value: number | undefined, fallback: number, name: string): number {
   const resolved = value ?? fallback
@@ -28,8 +34,126 @@ function imageExtension(format: string): string {
   return format === 'jpeg' ? 'jpeg' : format
 }
 
+function nonNegativeInteger(value: number | undefined, fallback: number, name: string): number {
+  const resolved = value ?? fallback
+  if (!Number.isInteger(resolved) || resolved < 0) {
+    throw new Error(`${name} must be a non-negative integer.`)
+  }
+  return resolved
+}
+
+async function sleep(ms: number): Promise<void> {
+  if (ms <= 0) {
+    return
+  }
+
+  await new Promise(resolveDelay => setTimeout(resolveDelay, ms))
+}
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
+}
+
 async function writeManifest(directoryPath: string, manifest: RunManifest): Promise<void> {
   await writeFile(resolve(directoryPath, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`, 'utf8')
+}
+
+async function generateImageWithAttempts(input: {
+  provider: VisualGenerationProvider
+  model: string
+  prompt: string
+  profile: ResolvedGenerationProfile
+  imageIndex: number
+  renderAttempts: number
+  renderRetryDelayMs: number
+  onRetry?: (event: RenderRetryEvent) => void
+  credentials?: unknown
+  proxyUrl?: string
+}): Promise<GeneratedImage> {
+  let lastError: unknown
+
+  for (let attempt = 1; attempt <= input.renderAttempts; attempt += 1) {
+    try {
+      const result = await input.provider.generateImages({
+        model: input.model,
+        prompt: input.prompt,
+        profile: input.profile,
+        imageCount: 1,
+        format: input.profile.format,
+        size: input.profile.size,
+        background: input.profile.background,
+        quality: input.profile.quality,
+        credentials: input.credentials,
+        proxyUrl: input.proxyUrl,
+      })
+
+      const first = result.images[0]
+      if (!first) {
+        throw new Error('Provider returned no image data.')
+      }
+
+      return first
+    } catch (error) {
+      lastError = error
+      if (attempt < input.renderAttempts) {
+        input.onRetry?.({
+          stage: 'image',
+          attempt,
+          attempts: input.renderAttempts,
+          retryDelayMs: input.renderRetryDelayMs,
+          errorMessage: getErrorMessage(error),
+          imageIndex: input.imageIndex,
+        })
+        await sleep(input.renderRetryDelayMs)
+      }
+    }
+  }
+
+  const detail = getErrorMessage(lastError)
+  throw new Error(`Image ${input.imageIndex + 1} failed after ${input.renderAttempts} attempt(s). ${detail}`)
+}
+
+async function generatePromptWithAttempts(input: {
+  provider: VisualGenerationProvider
+  model: string
+  providerInput: string
+  profile: ResolvedGenerationProfile
+  attempts: number
+  retryDelayMs: number
+  onRetry?: (event: RenderRetryEvent) => void
+  credentials?: unknown
+  proxyUrl?: string
+}): Promise<string> {
+  let lastError: unknown
+
+  for (let attempt = 1; attempt <= input.attempts; attempt += 1) {
+    try {
+      const result = await input.provider.generatePrompt({
+        model: input.model,
+        input: input.providerInput,
+        profile: input.profile,
+        credentials: input.credentials,
+        proxyUrl: input.proxyUrl,
+      })
+
+      return result.prompt.trim()
+    } catch (error) {
+      lastError = error
+      if (attempt < input.attempts) {
+        input.onRetry?.({
+          stage: 'prompt',
+          attempt,
+          attempts: input.attempts,
+          retryDelayMs: input.retryDelayMs,
+          errorMessage: getErrorMessage(error),
+        })
+        await sleep(input.retryDelayMs)
+      }
+    }
+  }
+
+  const detail = getErrorMessage(lastError)
+  throw new Error(`Prompt generation failed after ${input.attempts} attempt(s). ${detail}`)
 }
 
 export async function runVisualGeneration(input: RunVisualGenerationInput): Promise<VisualGenerationRunResult> {
@@ -52,20 +176,33 @@ export async function runVisualGeneration(input: RunVisualGenerationInput): Prom
   const slug = getArtifactSlug(input.name, prepared.resolved.params, prepared.project.config.id)
   const artifact = await createArtifactDirectory(input.artifactRootDir ?? prepared.project.outputDir, createdAt, slug)
   const requestedImages = input.command === 'render' ? imagesPerArtifact : 0
+  const renderAttempts = positiveInteger(
+    input.renderAttempts ?? prepared.project.config.generation?.renderAttempts,
+    DEFAULT_RENDER_ATTEMPTS,
+    'renderAttempts',
+  )
+  const renderRetryDelayMs = nonNegativeInteger(
+    input.renderRetryDelayMs ?? prepared.project.config.generation?.renderRetryDelayMs,
+    DEFAULT_RENDER_RETRY_DELAY_MS,
+    'renderRetryDelayMs',
+  )
 
   let resolvedPrompt = ''
 
   try {
-    const promptResult = await provider.generatePrompt({
+    resolvedPrompt = await generatePromptWithAttempts({
+      provider,
       model: profile.promptModel,
-      input: prepared.providerInput,
+      providerInput: prepared.providerInput,
       profile,
+      attempts: input.command === 'render' ? renderAttempts : 1,
+      retryDelayMs: renderRetryDelayMs,
+      onRetry: input.onRetry,
       credentials: input.credentials?.[profile.provider],
       proxyUrl: input.proxyUrl,
     })
-    resolvedPrompt = promptResult.prompt.trim()
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
+    const message = getErrorMessage(error)
     const manifest = createRunManifest({
       projectId: prepared.project.config.id,
       command: input.command,
@@ -121,19 +258,22 @@ export async function runVisualGeneration(input: RunVisualGenerationInput): Prom
   let imageError: unknown
 
   try {
-    const imageResult = await provider.generateImages({
-      model: profile.imageModel,
-      prompt: resolvedPrompt,
-      profile,
-      imageCount: imagesPerArtifact,
-      format: profile.format,
-      size: profile.size,
-      background: profile.background,
-      quality: profile.quality,
-      credentials: input.credentials?.[profile.provider],
-      proxyUrl: input.proxyUrl,
-    })
-    images = imageResult.images
+    for (let imageIndex = 0; imageIndex < imagesPerArtifact; imageIndex += 1) {
+      images.push(
+        await generateImageWithAttempts({
+          provider,
+          model: profile.imageModel,
+          prompt: resolvedPrompt,
+          profile,
+          imageIndex,
+          renderAttempts,
+          renderRetryDelayMs,
+          onRetry: input.onRetry,
+          credentials: input.credentials?.[profile.provider],
+          proxyUrl: input.proxyUrl,
+        }),
+      )
+    }
   } catch (error) {
     imageError = error
   }
@@ -174,7 +314,7 @@ export async function runVisualGeneration(input: RunVisualGenerationInput): Prom
     requestedImages: imagesPerArtifact,
     generatedImages: imageFiles.length,
     status,
-    errorMessage: imageError instanceof Error ? imageError.message : imageError === undefined ? undefined : String(imageError),
+    errorMessage: imageError === undefined ? undefined : getErrorMessage(imageError),
   })
   await writeManifest(artifact.directoryPath, manifest)
 
@@ -197,9 +337,20 @@ export async function runVisualBatch(input: RunVisualBatchInput): Promise<Visual
 
   for (let index = 0; index < artifactCount; index += 1) {
     try {
-      runs.push(await runVisualGeneration(singleInput))
+      runs.push(
+        await runVisualGeneration({
+          ...singleInput,
+          onRetry: event => {
+            input.onRetry?.({
+              ...event,
+              artifactIndex: index,
+              artifactCount,
+            })
+          },
+        }),
+      )
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
+      const message = getErrorMessage(error)
       errors.push({ index, message })
       if (!input.continueOnError) {
         throw error

@@ -26,6 +26,8 @@ export interface OutputConfig {
 }
 
 export interface GenerationConfig {
+  renderAttempts?: number
+  renderRetryDelayMs?: number
   defaultProfile?: string
   profiles?: Record<string, GenerationProfile>
 }
@@ -188,6 +190,17 @@ export interface VisualGenerationProvider {
 
 export type ProviderRegistry = Record<string, VisualGenerationProvider>
 
+export interface RenderRetryEvent {
+  stage: 'prompt' | 'image'
+  attempt: number
+  attempts: number
+  retryDelayMs: number
+  errorMessage: string
+  imageIndex?: number
+  artifactIndex?: number
+  artifactCount?: number
+}
+
 export interface RunVisualGenerationInput {
   command: PromptCommand
   projectPath: string
@@ -201,6 +214,9 @@ export interface RunVisualGenerationInput {
   uniqueLookback?: number
   name?: string
   imagesPerArtifact?: number
+  renderAttempts?: number
+  renderRetryDelayMs?: number
+  onRetry?: (event: RenderRetryEvent) => void
 }
 
 export interface VisualGenerationRunResult {

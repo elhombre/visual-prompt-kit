@@ -3,7 +3,13 @@ import { dirname, resolve } from 'node:path'
 
 import { config as loadEnv } from 'dotenv'
 
-import { loadProject, resolveGenerationProfile, runVisualBatch, type GenerationProfileOverrides } from '../core/index.js'
+import {
+  loadProject,
+  resolveGenerationProfile,
+  runVisualBatch,
+  type GenerationProfileOverrides,
+  type RenderRetryEvent,
+} from '../core/index.js'
 import { createDefaultProviders, getProxyUrlFromEnv } from '../providers/index.js'
 
 interface CliOptions {
@@ -24,6 +30,8 @@ interface CliOptions {
   imageModel?: string
   count?: number
   images?: number
+  renderAttempts?: number
+  renderRetryDelayMs?: number
   continueOnError: boolean
   sets: Record<string, string>
 }
@@ -40,6 +48,8 @@ Options:
   --output <dir>               Artifact root directory, default current working directory
   --count <n>                  Create n independent artifact directories, default 1
   --images <n>                 Generate n images per render artifact, default 1
+  --render-attempts <n>        Attempts per render request, default project config or 3
+  --render-retry-delay-ms <n>  Delay between render retry attempts, default project config or 2000
   --continue-on-error          Continue batch runs after a failed artifact
   --unique                     Enable artifact-based uniqueness checks
   --unique-lookback <n>        Number of prior artifact manifests to inspect
@@ -132,6 +142,14 @@ function parseArgs(argv: string[]): CliOptions {
         break
       case '--images':
         options.images = parsePositiveInteger(requireValue(argv, index, arg), arg)
+        index += 1
+        break
+      case '--render-attempts':
+        options.renderAttempts = parsePositiveInteger(requireValue(argv, index, arg), arg)
+        index += 1
+        break
+      case '--render-retry-delay-ms':
+        options.renderRetryDelayMs = parseNonNegativeInteger(requireValue(argv, index, arg), arg)
         index += 1
         break
       case '--continue-on-error':
@@ -239,6 +257,17 @@ function buildCredentials(): Record<string, unknown> {
   }
 }
 
+function formatRetryMessage(event: RenderRetryEvent): string {
+  const artifact =
+    event.artifactIndex === undefined
+      ? ''
+      : `Artifact ${event.artifactIndex + 1}${event.artifactCount === undefined ? '' : `/${event.artifactCount}`}: `
+  const stage = event.stage === 'image' ? `image ${(event.imageIndex ?? 0) + 1}` : 'prompt generation'
+  const delay = event.retryDelayMs > 0 ? ` Waiting ${event.retryDelayMs}ms.` : ''
+  const retry = artifact ? 'retrying' : 'Retrying'
+  return `${artifact}${retry} ${stage} after attempt ${event.attempt}/${event.attempts} failed: ${event.errorMessage}.${delay}\n`
+}
+
 async function buildProfileOverrides(
   projectPath: string,
   options: CliOptions,
@@ -308,6 +337,11 @@ async function main(): Promise<void> {
     name: options.name,
     artifactCount: count,
     imagesPerArtifact: images,
+    renderAttempts: options.renderAttempts,
+    renderRetryDelayMs: options.renderRetryDelayMs,
+    onRetry: event => {
+      process.stderr.write(formatRetryMessage(event))
+    },
     continueOnError: options.continueOnError,
   })
 
