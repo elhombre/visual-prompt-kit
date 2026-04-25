@@ -1,0 +1,4 @@
+examples/**/artifacts
+.npm-cache
+node_modules
+*.tgz

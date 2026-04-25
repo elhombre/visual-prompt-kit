@@ -1,0 +1,66 @@
+{
+  "subject": [
+    "a night market bicycle courier with reflective rain gear",
+    "a street photographer carrying a compact camera and folded map",
+    "a young architect sketching a transit station canopy",
+    "a rooftop greenhouse caretaker checking sensor-lit planters",
+    "a food stall owner closing a glowing metal shutter",
+    "a commuter in a structured coat waiting beside a tram stop",
+    "a jazz musician carrying a brass case through a service alley"
+  ],
+  "cityZone": [
+    "an elevated pedestrian bridge above layered tram lines",
+    "a dense night market under transparent awnings",
+    "a narrow service alley between tiled apartment towers",
+    "a rooftop garden overlooking glass office blocks",
+    "a riverside underpass with wet concrete columns",
+    "a small plaza outside a brutalist metro entrance",
+    "a corner cafe terrace below stacked fire escapes"
+  ],
+  "timeWeather": [
+    "blue hour after rain, streets still glossy with reflections",
+    "late evening drizzle with mist caught in shop lights",
+    "early morning fog before the city fully wakes",
+    "windy sunset with low amber light between buildings",
+    "midnight after a storm, puddles reflecting transit signals",
+    "cold winter dusk with tiny snow grains in the air"
+  ],
+  "action": [
+    "pausing to check a paper route note under a streetlamp",
+    "crossing through shallow reflections with purposeful movement",
+    "leaning over a railing to observe traffic patterns below",
+    "adjusting a bag strap while steam rises from a nearby vent",
+    "waiting at the edge of a crosswalk as the street glows around them",
+    "turning back toward a sudden light from a passing tram"
+  ],
+  "visualStyle": [
+    "cinematic editorial realism with painterly texture",
+    "near-future urban noir with grounded human detail",
+    "refined graphic novel realism without exaggerated comic effects",
+    "premium travel editorial with subtle speculative design",
+    "atmospheric architectural illustration with realistic materials"
+  ],
+  "palette": [
+    "deep teal, sodium amber, wet asphalt gray, and small red signal accents",
+    "cool blue glass, warm market lanterns, graphite shadows, and muted cream highlights",
+    "charcoal concrete, pale cyan reflections, brushed steel, and restrained coral accents",
+    "moss green, smoked glass, warm brass, and soft violet dusk tones",
+    "ink black, rain silver, electric blue, and a few warm orange windows"
+  ],
+  "cameraTreatment": [
+    "35mm street-level perspective with shallow foreground reflections",
+    "wide horizontal composition with layered depth and leading transit lines",
+    "low angle from behind rain-slick pavement, subject framed by architecture",
+    "medium telephoto compression with glowing background bokeh kept subtle",
+    "over-the-shoulder view that reveals the city geometry ahead"
+  ],
+  "detailMotif": [
+    "small paper tags tied to a courier rack moving in the wind",
+    "steam from food carts drifting across colored pavement reflections",
+    "condensation on glass railings and tiny drops on fabric",
+    "geometric shadows from overhead transit cables",
+    "puddles broken by tram vibrations",
+    "plants glowing under compact rooftop grow lights",
+    "folded transit maps softened by rain"
+  ]
+}

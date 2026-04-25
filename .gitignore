@@ -1,2 +1,9 @@
 .*
+*.tgz
+dist
+examples/**/artifacts
+node_modules
+!.env.example
 !.gitignore
+!.npmignore
+!.yarnrc.yml
