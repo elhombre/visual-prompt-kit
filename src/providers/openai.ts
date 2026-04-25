@@ -52,9 +52,13 @@ function getStringOption(options: Record<string, unknown>, name: string): string
   return typeof value === 'string' && value.trim().length > 0 ? value : undefined
 }
 
+function getProviderOptions(input: PromptProviderRequest | ImageProviderRequest): Record<string, unknown> {
+  return input.providerOptions ?? input.profile.options
+}
+
 function requireApiKey(input: PromptProviderRequest | ImageProviderRequest): string {
   const credentials = asOpenAiCredentials(input.credentials)
-  const apiKey = credentials.apiKey ?? getStringOption(input.profile.options, 'apiKey')
+  const apiKey = credentials.apiKey ?? getStringOption(getProviderOptions(input), 'apiKey')
   if (!apiKey) {
     throw new Error('Missing OpenAI API key.')
   }
@@ -63,7 +67,7 @@ function requireApiKey(input: PromptProviderRequest | ImageProviderRequest): str
 
 function getBaseUrl(input: PromptProviderRequest | ImageProviderRequest): string {
   const credentials = asOpenAiCredentials(input.credentials)
-  return credentials.baseUrl ?? getStringOption(input.profile.options, 'baseUrl') ?? DEFAULT_BASE_URL
+  return credentials.baseUrl ?? getStringOption(getProviderOptions(input), 'baseUrl') ?? DEFAULT_BASE_URL
 }
 
 async function callOpenAi<T>(input: {

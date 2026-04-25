@@ -38,12 +38,28 @@ Provider configuration is profile-based:
   "generation": {
     "renderAttempts": 3,
     "renderRetryDelayMs": 2000,
-    "defaultProfile": "gemini",
+    "defaultProfile": "editorial-cover",
     "profiles": {
-      "gemini": {
-        "provider": "gemini",
-        "promptModel": "gemini-3.1-flash-image-preview",
-        "imageModel": "gemini-3.1-flash-image-preview",
+      "editorial-cover": {
+        "prompt": {
+          "provider": "gemini",
+          "model": "gemini-3.1-flash-image-preview"
+        },
+        "image": {
+          "provider": "gemini",
+          "model": "gemini-3.1-flash-image-preview"
+        },
+        "format": "png"
+      },
+      "studio-render": {
+        "prompt": {
+          "provider": "openai",
+          "model": "gpt-5"
+        },
+        "image": {
+          "provider": "gemini",
+          "model": "gemini-3.1-flash-image-preview"
+        },
         "format": "png"
       }
     }
@@ -51,23 +67,25 @@ Provider configuration is profile-based:
 }
 ```
 
-Common fields are shared across providers:
+Profile names describe the output preset rather than the provider implementation. Prompt generation and image rendering can use different providers:
 
-- `provider`
-- `promptModel`
-- `imageModel`
-- `model`
+- `prompt.provider`
+- `prompt.model`
+- `prompt.options`
+- `image.provider`
+- `image.model`
+- `image.options`
 - `format`
 - `size`
 - `background`
 - `quality`
 - `options`
 
-`model` is a shortcut for setting both prompt and image models. Provider-specific fields belong in `options`.
+Provider-specific fields belong in `prompt.options` or `image.options`. Top-level `options` are merged into both stages. The legacy `provider`, `promptModel`, `imageModel`, and `model` fields are still accepted and normalized into the stage-based shape.
 
 `renderAttempts` and `renderRetryDelayMs` define the render retry policy. They apply to prompt generation during the `render` command and to each requested image. The `prompt` command still performs a single prompt generation request. Defaults are `3` attempts and `2000` milliseconds.
 
-The core API stays silent by default. Consumers that need diagnostics can pass `onRetry` to receive retry events; the CLI uses this hook to print retry notices to stderr. Batch retry events include `artifactIndex` and `artifactCount` so logs can be tied back to a specific artifact.
+The core API stays silent by default. Consumers that need diagnostics can pass `onRetry` to receive retry events; the CLI uses this hook to print retry notices to stderr. Retry events include the provider used by the failed stage. Batch retry events include `artifactIndex` and `artifactCount` so logs can be tied back to a specific artifact.
 
 Resolution order:
 
@@ -91,6 +109,8 @@ interface VisualGenerationProvider {
 ```
 
 The orchestration layer treats all providers uniformly. If a provider does not support native multi-image generation, it may perform repeated requests internally.
+
+Provider calls receive `providerOptions` for the active stage. This lets a mixed profile pass different options to prompt and image providers while keeping credentials keyed by provider name.
 
 ## Batch Semantics
 

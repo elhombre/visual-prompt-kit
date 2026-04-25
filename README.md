@@ -66,21 +66,37 @@ Example config:
   "generation": {
     "renderAttempts": 3,
     "renderRetryDelayMs": 2000,
-    "defaultProfile": "gemini",
+    "defaultProfile": "editorial-cover",
     "profiles": {
-      "gemini": {
-        "provider": "gemini",
-        "promptModel": "gemini-3.1-flash-image-preview",
-        "imageModel": "gemini-3.1-flash-image-preview",
-        "format": "png",
-        "options": {
-          "location": "global"
-        }
+      "editorial-cover": {
+        "prompt": {
+          "provider": "gemini",
+          "model": "gemini-3.1-flash-image-preview",
+          "options": {
+            "location": "global"
+          }
+        },
+        "image": {
+          "provider": "gemini",
+          "model": "gemini-3.1-flash-image-preview",
+          "options": {
+            "location": "global"
+          }
+        },
+        "format": "png"
       },
-      "openai": {
-        "provider": "openai",
-        "promptModel": "gpt-5",
-        "imageModel": "gpt-image-1",
+      "studio-render": {
+        "prompt": {
+          "provider": "openai",
+          "model": "gpt-5"
+        },
+        "image": {
+          "provider": "gemini",
+          "model": "gemini-3.1-flash-image-preview",
+          "options": {
+            "location": "global"
+          }
+        },
         "format": "png",
         "size": "1536x1024",
         "quality": "medium",
@@ -92,6 +108,8 @@ Example config:
 ```
 
 `output.dir` is the library default artifact root and is resolved relative to `project.jsonc`. The CLI intentionally defaults to the current working directory instead, and `--output <dir>` overrides both defaults.
+
+Profile names should describe output presets, not provider wiring. Each profile can choose separate `prompt` and `image` providers. Provider-specific settings belong in `prompt.options` or `image.options`; top-level `options` are merged into both stages. The legacy `provider`, `promptModel`, `imageModel`, and `model` fields are still accepted for compatibility.
 
 ## CLI
 
@@ -110,7 +128,13 @@ vpk render --project ./examples/urban-scenes --output ./runs --set subject="nigh
 Use another profile:
 
 ```bash
-vpk render --project ./examples/urban-scenes --output ./runs --profile openai
+vpk render --project ./examples/urban-scenes --output ./runs --profile studio-render
+```
+
+Override providers for one run:
+
+```bash
+vpk render --project ./examples/urban-scenes --output ./runs --prompt-provider openai --image-provider gemini
 ```
 
 Create five independent artifacts with three images each:
@@ -128,7 +152,9 @@ vpk render --project ./examples/urban-scenes --output ./runs --count 20 --images
 Common options:
 
 - `--profile <name>`: generation profile from `project.jsonc`.
-- `--provider <name>`: provider override. If no profile is selected, the CLI first looks for a profile using that provider.
+- `--provider <name>`: override both prompt and image providers. If no profile is selected, the CLI first looks for a profile using that provider.
+- `--prompt-provider <name>`: override prompt generation provider.
+- `--image-provider <name>`: override image generation provider.
 - `--set <key=value>`: override one prompt parameter.
 - `--output <dir>`: artifact root directory. Defaults to the current working directory.
 - `--count <n>`: create independent artifact directories.
@@ -195,7 +221,7 @@ const result = await runVisualGeneration({
     subject: 'rain-soaked bicycle courier',
   },
   profileOverrides: {
-    profileName: 'gemini',
+    profileName: 'editorial-cover',
   },
   providers: createDefaultProviders(),
   credentials: {
@@ -210,7 +236,9 @@ const result = await runVisualGeneration({
   onRetry: event => {
     const artifact =
       event.artifactIndex === undefined ? '' : `Artifact ${event.artifactIndex + 1}/${event.artifactCount}: `
-    console.warn(`${artifact}retrying ${event.stage} after attempt ${event.attempt}/${event.attempts}: ${event.errorMessage}`)
+    console.warn(
+      `${artifact}retrying ${event.stage} via ${event.provider} after attempt ${event.attempt}/${event.attempts}: ${event.errorMessage}`,
+    )
   },
 })
 
@@ -231,7 +259,7 @@ const batch = await runVisualBatch({
     },
   },
   profileOverrides: {
-    profileName: 'openai',
+    profileName: 'studio-render',
   },
   artifactCount: 5,
   imagesPerArtifact: 3,

@@ -39,8 +39,23 @@ export function createRunManifest(input: {
     provider: {
       profile: input.profile.name,
       name: input.profile.provider,
-      promptModel: input.profile.promptModel,
-      imageModel: input.command === 'render' ? input.profile.imageModel : undefined,
+      promptModel: input.profile.prompt.model,
+      imageModel: input.command === 'render' ? input.profile.image.model : undefined,
+      prompt: {
+        name: input.profile.prompt.provider,
+        model: input.profile.prompt.model,
+      },
+      image:
+        input.command === 'render'
+          ? {
+              name: input.profile.image.provider,
+              model: input.profile.image.model,
+              format: input.format,
+              size: input.size,
+              background: input.background,
+              quality: input.quality,
+            }
+          : undefined,
       format: input.format,
       size: input.size,
       background: input.background,

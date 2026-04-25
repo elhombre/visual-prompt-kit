@@ -64,6 +64,10 @@ function getStringOption(options: Record<string, unknown>, name: string): string
   return typeof value === 'string' && value.trim().length > 0 ? value : undefined
 }
 
+function getProviderOptions(input: PromptProviderRequest | ImageProviderRequest): Record<string, unknown> {
+  return input.providerOptions ?? input.profile.options
+}
+
 function getBooleanOption(options: Record<string, unknown>, name: string): boolean | undefined {
   const value = options[name]
   return typeof value === 'boolean' ? value : undefined
@@ -71,10 +75,11 @@ function getBooleanOption(options: Record<string, unknown>, name: string): boole
 
 function createClient(input: PromptProviderRequest | ImageProviderRequest): GoogleGenAI {
   const credentials = asGeminiCredentials(input.credentials)
-  const apiKey = credentials.apiKey ?? getStringOption(input.profile.options, 'apiKey')
-  const project = credentials.project ?? getStringOption(input.profile.options, 'project')
-  const location = credentials.location ?? getStringOption(input.profile.options, 'location') ?? 'global'
-  const vertexai = credentials.vertexai ?? getBooleanOption(input.profile.options, 'vertexai') ?? true
+  const options = getProviderOptions(input)
+  const apiKey = credentials.apiKey ?? getStringOption(options, 'apiKey')
+  const project = credentials.project ?? getStringOption(options, 'project')
+  const location = credentials.location ?? getStringOption(options, 'location') ?? 'global'
+  const vertexai = credentials.vertexai ?? getBooleanOption(options, 'vertexai') ?? true
 
   if (apiKey) {
     return new GoogleGenAI({ apiKey })

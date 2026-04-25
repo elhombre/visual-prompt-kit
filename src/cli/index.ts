@@ -17,6 +17,8 @@ interface CliOptions {
   project?: string
   profile?: string
   provider?: string
+  promptProvider?: string
+  imageProvider?: string
   name?: string
   unique: boolean
   uniqueLookback?: number
@@ -42,7 +44,9 @@ function printUsage(): void {
 Options:
   --project <path>             Path to project directory or project.jsonc
   --profile <name>             Generation profile from project.jsonc
-  --provider <name>            Provider override, for example gemini or openai
+  --provider <name>            Override both prompt and image providers
+  --prompt-provider <name>     Override prompt generation provider
+  --image-provider <name>      Override image generation provider
   --set <key=value>            Override one prompt parameter
   --name <slug>                Override artifact slug source
   --output <dir>               Artifact root directory, default current working directory
@@ -115,6 +119,14 @@ function parseArgs(argv: string[]): CliOptions {
         break
       case '--provider':
         options.provider = requireValue(argv, index, arg)
+        index += 1
+        break
+      case '--prompt-provider':
+        options.promptProvider = requireValue(argv, index, arg)
+        index += 1
+        break
+      case '--image-provider':
+        options.imageProvider = requireValue(argv, index, arg)
         index += 1
         break
       case '--set': {
@@ -265,7 +277,7 @@ function formatRetryMessage(event: RenderRetryEvent): string {
   const stage = event.stage === 'image' ? `image ${(event.imageIndex ?? 0) + 1}` : 'prompt generation'
   const delay = event.retryDelayMs > 0 ? ` Waiting ${event.retryDelayMs}ms.` : ''
   const retry = artifact ? 'retrying' : 'Retrying'
-  return `${artifact}${retry} ${stage} after attempt ${event.attempt}/${event.attempts} failed: ${event.errorMessage}.${delay}\n`
+  return `${artifact}${retry} ${stage} via ${event.provider} after attempt ${event.attempt}/${event.attempts} failed: ${event.errorMessage}.${delay}\n`
 }
 
 async function buildProfileOverrides(
@@ -275,6 +287,8 @@ async function buildProfileOverrides(
   const base: GenerationProfileOverrides = {
     profileName: options.profile,
     provider: options.provider,
+    promptProvider: options.promptProvider,
+    imageProvider: options.imageProvider,
     model: options.model,
     promptModel: options.promptModel,
     imageModel: options.imageModel,
@@ -290,12 +304,14 @@ async function buildProfileOverrides(
 
   const project = await loadProject(projectPath)
   const resolved = resolveGenerationProfile(project.config, base)
+  const promptModel = resolved.prompt.provider === 'openai' ? process.env.OPENAI_PROMPT_MODEL : undefined
+  const imageModel = resolved.image.provider === 'openai' ? process.env.OPENAI_IMAGE_MODEL : undefined
 
-  if (resolved.provider === 'openai') {
+  if (promptModel || imageModel) {
     return {
       ...base,
-      promptModel: process.env.OPENAI_PROMPT_MODEL,
-      imageModel: process.env.OPENAI_IMAGE_MODEL,
+      promptModel,
+      imageModel,
     }
   }
 

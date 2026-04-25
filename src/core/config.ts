@@ -2,7 +2,15 @@ import { readFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 
 import { parseJsonc } from './jsonc.js'
-import type { GenerationConfig, GenerationProfile, LoadedProject, OutputConfig, ParameterCatalog, ProjectConfig } from './types.js'
+import type {
+  GenerationConfig,
+  GenerationProfile,
+  GenerationProfileProvider,
+  LoadedProject,
+  OutputConfig,
+  ParameterCatalog,
+  ProjectConfig,
+} from './types.js'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -14,6 +22,34 @@ function expectString(value: unknown, path: string): string {
   }
 
   return value
+}
+
+function expectOptionalString(value: unknown, path: string): string | undefined {
+  if (value === undefined) {
+    return undefined
+  }
+
+  return expectString(value, path)
+}
+
+function parseGenerationProfileProvider(value: unknown, path: string): GenerationProfileProvider | undefined {
+  if (value === undefined) {
+    return undefined
+  }
+
+  if (!isRecord(value)) {
+    throw new Error(`Expected object at ${path}.`)
+  }
+
+  if (value.options !== undefined && !isRecord(value.options)) {
+    throw new Error(`Expected object at ${path}.options.`)
+  }
+
+  return {
+    provider: expectOptionalString(value.provider, `${path}.provider`),
+    model: expectOptionalString(value.model, `${path}.model`),
+    options: value.options as Record<string, unknown> | undefined,
+  }
 }
 
 function parseGenerationProfile(value: unknown, path: string): GenerationProfile {
@@ -41,12 +77,14 @@ function parseGenerationProfile(value: unknown, path: string): GenerationProfile
   }
 
   return {
-    provider: expectString(value.provider, `${path}.provider`),
-    promptModel: typeof value.promptModel === 'string' ? value.promptModel : undefined,
-    imageModel: typeof value.imageModel === 'string' ? value.imageModel : undefined,
-    model: typeof value.model === 'string' ? value.model : undefined,
+    provider: expectOptionalString(value.provider, `${path}.provider`),
+    prompt: parseGenerationProfileProvider(value.prompt, `${path}.prompt`),
+    image: parseGenerationProfileProvider(value.image, `${path}.image`),
+    promptModel: expectOptionalString(value.promptModel, `${path}.promptModel`),
+    imageModel: expectOptionalString(value.imageModel, `${path}.imageModel`),
+    model: expectOptionalString(value.model, `${path}.model`),
     format,
-    size: typeof value.size === 'string' ? value.size : undefined,
+    size: expectOptionalString(value.size, `${path}.size`),
     background,
     quality,
     options: value.options as Record<string, unknown> | undefined,

@@ -32,8 +32,16 @@ export interface GenerationConfig {
   profiles?: Record<string, GenerationProfile>
 }
 
+export interface GenerationProfileProvider {
+  provider?: string
+  model?: string
+  options?: Record<string, unknown>
+}
+
 export interface GenerationProfile {
-  provider: string
+  provider?: string
+  prompt?: GenerationProfileProvider
+  image?: GenerationProfileProvider
   promptModel?: string
   imageModel?: string
   model?: string
@@ -44,8 +52,17 @@ export interface GenerationProfile {
   options?: Record<string, unknown>
 }
 
-export interface ResolvedGenerationProfile extends Required<Pick<GenerationProfile, 'provider'>> {
+export interface ResolvedGenerationProvider {
+  provider: string
+  model: string
+  options: Record<string, unknown>
+}
+
+export interface ResolvedGenerationProfile {
   name: string
+  prompt: ResolvedGenerationProvider
+  image: ResolvedGenerationProvider
+  provider: string
   promptModel: string
   imageModel: string
   format: ImageFormat
@@ -58,6 +75,8 @@ export interface ResolvedGenerationProfile extends Required<Pick<GenerationProfi
 export interface GenerationProfileOverrides {
   profileName?: string
   provider?: string
+  promptProvider?: string
+  imageProvider?: string
   model?: string
   promptModel?: string
   imageModel?: string
@@ -98,6 +117,18 @@ export interface RunManifest {
     name: string
     promptModel: string
     imageModel?: string
+    prompt: {
+      name: string
+      model: string
+    }
+    image?: {
+      name: string
+      model: string
+      format?: ImageFormat
+      size?: string
+      background?: ImageBackground
+      quality?: string
+    }
     format?: ImageFormat
     size?: string
     background?: ImageBackground
@@ -151,6 +182,7 @@ export interface PromptProviderRequest {
   model: string
   input: string
   profile: ResolvedGenerationProfile
+  providerOptions?: Record<string, unknown>
   credentials?: unknown
   proxyUrl?: string
 }
@@ -163,6 +195,7 @@ export interface ImageProviderRequest {
   model: string
   prompt: string
   profile: ResolvedGenerationProfile
+  providerOptions?: Record<string, unknown>
   imageCount: number
   format?: ImageFormat
   size?: string
@@ -192,6 +225,7 @@ export type ProviderRegistry = Record<string, VisualGenerationProvider>
 
 export interface RenderRetryEvent {
   stage: 'prompt' | 'image'
+  provider: string
   attempt: number
   attempts: number
   retryDelayMs: number

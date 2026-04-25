@@ -64,9 +64,11 @@ async function generateImageWithAttempts(input: {
   prompt: string
   profile: ResolvedGenerationProfile
   imageIndex: number
+  providerName: string
   renderAttempts: number
   renderRetryDelayMs: number
   onRetry?: (event: RenderRetryEvent) => void
+  providerOptions: Record<string, unknown>
   credentials?: unknown
   proxyUrl?: string
 }): Promise<GeneratedImage> {
@@ -78,6 +80,7 @@ async function generateImageWithAttempts(input: {
         model: input.model,
         prompt: input.prompt,
         profile: input.profile,
+        providerOptions: input.providerOptions,
         imageCount: 1,
         format: input.profile.format,
         size: input.profile.size,
@@ -98,6 +101,7 @@ async function generateImageWithAttempts(input: {
       if (attempt < input.renderAttempts) {
         input.onRetry?.({
           stage: 'image',
+          provider: input.providerName,
           attempt,
           attempts: input.renderAttempts,
           retryDelayMs: input.renderRetryDelayMs,
@@ -118,9 +122,11 @@ async function generatePromptWithAttempts(input: {
   model: string
   providerInput: string
   profile: ResolvedGenerationProfile
+  providerName: string
   attempts: number
   retryDelayMs: number
   onRetry?: (event: RenderRetryEvent) => void
+  providerOptions: Record<string, unknown>
   credentials?: unknown
   proxyUrl?: string
 }): Promise<string> {
@@ -132,6 +138,7 @@ async function generatePromptWithAttempts(input: {
         model: input.model,
         input: input.providerInput,
         profile: input.profile,
+        providerOptions: input.providerOptions,
         credentials: input.credentials,
         proxyUrl: input.proxyUrl,
       })
@@ -142,6 +149,7 @@ async function generatePromptWithAttempts(input: {
       if (attempt < input.attempts) {
         input.onRetry?.({
           stage: 'prompt',
+          provider: input.providerName,
           attempt,
           attempts: input.attempts,
           retryDelayMs: input.retryDelayMs,
@@ -166,10 +174,15 @@ export async function runVisualGeneration(input: RunVisualGenerationInput): Prom
     uniqueLookback: input.uniqueLookback,
   })
   const profile = resolveGenerationProfile(prepared.project.config, input.profileOverrides)
-  const provider = input.providers[profile.provider]
+  const promptProvider = input.providers[profile.prompt.provider]
+  const imageProvider = input.providers[profile.image.provider]
 
-  if (!provider) {
-    throw new Error(`Unsupported provider "${profile.provider}".`)
+  if (!promptProvider) {
+    throw new Error(`Unsupported prompt provider "${profile.prompt.provider}".`)
+  }
+
+  if (input.command === 'render' && !imageProvider) {
+    throw new Error(`Unsupported image provider "${profile.image.provider}".`)
   }
 
   const createdAt = new Date()
@@ -191,14 +204,16 @@ export async function runVisualGeneration(input: RunVisualGenerationInput): Prom
 
   try {
     resolvedPrompt = await generatePromptWithAttempts({
-      provider,
-      model: profile.promptModel,
+      provider: promptProvider,
+      model: profile.prompt.model,
       providerInput: prepared.providerInput,
       profile,
+      providerName: profile.prompt.provider,
       attempts: input.command === 'render' ? renderAttempts : 1,
       retryDelayMs: renderRetryDelayMs,
       onRetry: input.onRetry,
-      credentials: input.credentials?.[profile.provider],
+      providerOptions: profile.prompt.options,
+      credentials: input.credentials?.[profile.prompt.provider],
       proxyUrl: input.proxyUrl,
     })
   } catch (error) {
@@ -261,15 +276,17 @@ export async function runVisualGeneration(input: RunVisualGenerationInput): Prom
     for (let imageIndex = 0; imageIndex < imagesPerArtifact; imageIndex += 1) {
       images.push(
         await generateImageWithAttempts({
-          provider,
-          model: profile.imageModel,
+          provider: imageProvider,
+          model: profile.image.model,
           prompt: resolvedPrompt,
           profile,
           imageIndex,
+          providerName: profile.image.provider,
           renderAttempts,
           renderRetryDelayMs,
           onRetry: input.onRetry,
-          credentials: input.credentials?.[profile.provider],
+          providerOptions: profile.image.options,
+          credentials: input.credentials?.[profile.image.provider],
           proxyUrl: input.proxyUrl,
         }),
       )

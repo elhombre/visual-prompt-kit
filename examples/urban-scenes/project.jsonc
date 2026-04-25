@@ -8,21 +8,37 @@
   "generation": {
     "renderAttempts": 3,
     "renderRetryDelayMs": 2000,
-    "defaultProfile": "gemini",
+    "defaultProfile": "editorial-cover",
     "profiles": {
-      "gemini": {
-        "provider": "gemini",
-        "promptModel": "gemini-3.1-flash-image-preview",
-        "imageModel": "gemini-3.1-flash-image-preview",
-        "format": "png",
-        "options": {
-          "location": "global"
-        }
+      "editorial-cover": {
+        "prompt": {
+          "provider": "gemini",
+          "model": "gemini-3.1-flash-image-preview",
+          "options": {
+            "location": "global"
+          }
+        },
+        "image": {
+          "provider": "gemini",
+          "model": "gemini-3.1-flash-image-preview",
+          "options": {
+            "location": "global"
+          }
+        },
+        "format": "png"
       },
-      "openai": {
-        "provider": "openai",
-        "promptModel": "gpt-5",
-        "imageModel": "gpt-image-1",
+      "studio-render": {
+        "prompt": {
+          "provider": "openai",
+          "model": "gpt-5"
+        },
+        "image": {
+          "provider": "gemini",
+          "model": "gemini-3.1-flash-image-preview",
+          "options": {
+            "location": "global"
+          }
+        },
         "format": "png",
         "size": "1536x1024",
         "quality": "medium",
