@@ -6,7 +6,7 @@ export type RunStatus = 'success' | 'partial-success' | 'prompt-generation-faile
 export interface LoadedProject {
   filePath: string
   dirPath: string
-  artifactsDir: string
+  outputDir: string
   config: ProjectConfig
   metaPrompt: string
   parameterCatalog?: ParameterCatalog
@@ -16,9 +16,13 @@ export interface ProjectConfig {
   id: string
   metaPromptFile: string
   parameterCatalogFile?: string
-  artifactsDir: string
+  output?: OutputConfig
   generation?: GenerationConfig
   uniqueness?: UniquenessDefaults
+}
+
+export interface OutputConfig {
+  dir: string
 }
 
 export interface GenerationConfig {
@@ -127,6 +131,7 @@ export interface PromptUniquenessResult {
 
 export interface PreparePromptGenerationInput {
   projectPath: string
+  artifactRootDir?: string
   overrides?: Record<string, string>
   unique?: boolean
   uniqueLookback?: number
@@ -186,6 +191,7 @@ export type ProviderRegistry = Record<string, VisualGenerationProvider>
 export interface RunVisualGenerationInput {
   command: PromptCommand
   projectPath: string
+  artifactRootDir?: string
   parameterOverrides?: Record<string, string>
   profileOverrides?: GenerationProfileOverrides
   providers: ProviderRegistry

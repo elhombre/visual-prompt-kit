@@ -1,4 +1,4 @@
-import { access, constants, readFile, writeFile } from 'node:fs/promises'
+import { access, constants } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 
 import { config as loadEnv } from 'dotenv'
@@ -14,8 +14,7 @@ interface CliOptions {
   name?: string
   unique: boolean
   uniqueLookback?: number
-  promptOut?: string
-  out?: string
+  output?: string
   format?: 'png' | 'jpeg' | 'webp'
   size?: string
   background?: 'opaque' | 'transparent'
@@ -38,13 +37,12 @@ Options:
   --provider <name>            Provider override, for example gemini or openai
   --set <key=value>            Override one prompt parameter
   --name <slug>                Override artifact slug source
+  --output <dir>               Artifact root directory, default current working directory
   --count <n>                  Create n independent artifact directories, default 1
   --images <n>                 Generate n images per render artifact, default 1
   --continue-on-error          Continue batch runs after a failed artifact
   --unique                     Enable artifact-based uniqueness checks
   --unique-lookback <n>        Number of prior artifact manifests to inspect
-  --prompt-out <path>          Copy final prompt to a separate file; single artifact only
-  --out <path>                 Copy rendered image, or prompt for prompt command; single artifact/image only
   --format <png|jpeg|webp>     Output image format
   --size <value>               Override image size
   --background <opaque|transparent>
@@ -124,6 +122,10 @@ function parseArgs(argv: string[]): CliOptions {
         options.name = requireValue(argv, index, arg)
         index += 1
         break
+      case '--output':
+        options.output = requireValue(argv, index, arg)
+        index += 1
+        break
       case '--count':
         options.count = parsePositiveInteger(requireValue(argv, index, arg), arg)
         index += 1
@@ -140,14 +142,6 @@ function parseArgs(argv: string[]): CliOptions {
         break
       case '--unique-lookback':
         options.uniqueLookback = parseNonNegativeInteger(requireValue(argv, index, arg), arg)
-        index += 1
-        break
-      case '--prompt-out':
-        options.promptOut = requireValue(argv, index, arg)
-        index += 1
-        break
-      case '--out':
-        options.out = requireValue(argv, index, arg)
         index += 1
         break
       case '--format':
@@ -287,25 +281,6 @@ async function buildProfileOverrides(
   return base
 }
 
-async function copySingleOutputs(options: CliOptions, resultDirectory: string, imageFile?: string): Promise<void> {
-  if (options.promptOut) {
-    const prompt = await readFile(resolve(resultDirectory, 'prompt.txt'))
-    await writeFile(resolve(getInvocationCwd(), options.promptOut), prompt)
-  }
-
-  if (!options.out) {
-    return
-  }
-
-  const sourceFile = options.command === 'prompt' ? 'prompt.txt' : imageFile
-  if (!sourceFile) {
-    throw new Error('--out requires exactly one generated image.')
-  }
-
-  const bytes = await readFile(resolve(resultDirectory, sourceFile))
-  await writeFile(resolve(getInvocationCwd(), options.out), bytes)
-}
-
 async function main(): Promise<void> {
   const options = parseArgs(process.argv.slice(2))
   if (options.command !== 'prompt' && options.command !== 'render') {
@@ -321,22 +296,16 @@ async function main(): Promise<void> {
   const count = options.count ?? 1
   const images = options.images ?? 1
 
-  if ((options.promptOut || options.out) && count !== 1) {
-    throw new Error('--prompt-out and --out can be used only when --count is 1.')
-  }
-
-  if (options.out && options.command === 'render' && images !== 1) {
-    throw new Error('--out can be used for render only when --images is 1.')
-  }
-
   const invocationCwd = getInvocationCwd()
   await loadNearestEnvFile(invocationCwd)
   const projectPath = resolve(invocationCwd, options.project)
+  const artifactRootDir = resolve(invocationCwd, options.output ?? '.')
   const profileOverrides = await buildProfileOverrides(projectPath, options)
 
   const result = await runVisualBatch({
     command: options.command,
     projectPath,
+    artifactRootDir,
     parameterOverrides: options.sets,
     profileOverrides,
     providers: createDefaultProviders(),
@@ -351,10 +320,6 @@ async function main(): Promise<void> {
   })
 
   const firstRun = result.runs[0]
-  if (firstRun && count === 1) {
-    await copySingleOutputs(options, firstRun.artifactDirectory, firstRun.manifest.files.images?.[0])
-  }
-
   if (options.command === 'prompt' && firstRun && count === 1) {
     process.stdout.write(`${firstRun.manifest.resolvedPrompt}\n`)
   } else {

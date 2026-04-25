@@ -27,7 +27,7 @@ export async function preparePromptGeneration(input: PreparePromptGenerationInpu
 
   const uniquenessEnabled = input.unique ?? project.config.uniqueness?.enabled ?? false
   const uniquenessLookback = input.uniqueLookback ?? project.config.uniqueness?.lookback ?? 20
-  const manifests = uniquenessEnabled ? await listArtifactManifests(project.artifactsDir) : []
+  const manifests = uniquenessEnabled ? await listArtifactManifests(input.artifactRootDir ?? project.outputDir) : []
   const uniqueness = buildPromptUniqueness({
     enabled: uniquenessEnabled,
     lookback: uniquenessLookback,

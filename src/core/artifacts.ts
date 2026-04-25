@@ -68,9 +68,9 @@ export async function createArtifactDirectory(
   }
 }
 
-export async function listArtifactManifests(artifactsDir: string): Promise<ArtifactManifestRecord[]> {
+export async function listArtifactManifests(outputDir: string): Promise<ArtifactManifestRecord[]> {
   try {
-    const info = await stat(artifactsDir)
+    const info = await stat(outputDir)
     if (!info.isDirectory()) {
       return []
     }
@@ -78,7 +78,7 @@ export async function listArtifactManifests(artifactsDir: string): Promise<Artif
     return []
   }
 
-  const entries = await readdir(artifactsDir, { withFileTypes: true })
+  const entries = await readdir(outputDir, { withFileTypes: true })
   const manifests: ArtifactManifestRecord[] = []
 
   for (const entry of entries) {
@@ -86,7 +86,7 @@ export async function listArtifactManifests(artifactsDir: string): Promise<Artif
       continue
     }
 
-    const directoryPath = resolve(artifactsDir, entry.name)
+    const directoryPath = resolve(outputDir, entry.name)
     const manifestPath = resolve(directoryPath, 'manifest.json')
 
     try {

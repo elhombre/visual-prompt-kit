@@ -16,8 +16,8 @@
     "node": ">=20"
   },
   "bin": {
-    "vpk": "./bin/visual-prompt",
-    "visual-prompt": "./bin/visual-prompt"
+    "vpk": "./bin/vpk",
+    "visual-prompt": "./bin/vpk"
   },
   "exports": {
     ".": {

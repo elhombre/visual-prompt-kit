@@ -51,7 +51,6 @@ project/
   project.jsonc
   meta-prompt.md
   parameter-catalog.jsonc
-  artifacts/
 ```
 
 Example config:
@@ -61,7 +60,9 @@ Example config:
   "id": "urban-scenes",
   "metaPromptFile": "./meta-prompt.md",
   "parameterCatalogFile": "./parameter-catalog.jsonc",
-  "artifactsDir": "./artifacts",
+  "output": {
+    "dir": "./artifacts"
+  },
   "generation": {
     "defaultProfile": "gemini",
     "profiles": {
@@ -88,6 +89,8 @@ Example config:
 }
 ```
 
+`output.dir` is the library default artifact root and is resolved relative to `project.jsonc`. The CLI intentionally defaults to the current working directory instead, and `--output <dir>` overrides both defaults.
+
 ## CLI
 
 Generate a final prompt:
@@ -99,19 +102,19 @@ vpk prompt --project ./examples/urban-scenes --set subject="night market courier
 Render one image with the default profile:
 
 ```bash
-vpk render --project ./examples/urban-scenes --set subject="night market courier"
+vpk render --project ./examples/urban-scenes --output ./runs --set subject="night market courier"
 ```
 
 Use another profile:
 
 ```bash
-vpk render --project ./examples/urban-scenes --profile openai
+vpk render --project ./examples/urban-scenes --output ./runs --profile openai
 ```
 
 Create five independent artifacts with three images each:
 
 ```bash
-vpk render --project ./examples/urban-scenes --count 5 --images 3 --continue-on-error
+vpk render --project ./examples/urban-scenes --output ./runs --count 5 --images 3 --continue-on-error
 ```
 
 Common options:
@@ -119,11 +122,10 @@ Common options:
 - `--profile <name>`: generation profile from `project.jsonc`.
 - `--provider <name>`: provider override. If no profile is selected, the CLI first looks for a profile using that provider.
 - `--set <key=value>`: override one prompt parameter.
+- `--output <dir>`: artifact root directory. Defaults to the current working directory.
 - `--count <n>`: create independent artifact directories.
 - `--images <n>`: create multiple images inside each render artifact.
 - `--unique`: add an anti-repetition block from similar prior artifact manifests.
-- `--prompt-out <path>`: copy the final prompt for a single artifact.
-- `--out <path>`: copy a single prompt or rendered image.
 
 ## Environment
 
@@ -179,6 +181,7 @@ Run one render:
 const result = await runVisualGeneration({
   command: 'render',
   projectPath: './examples/urban-scenes',
+  artifactRootDir: './runs',
   parameterOverrides: {
     subject: 'rain-soaked bicycle courier',
   },
@@ -204,6 +207,7 @@ Run a batch:
 const batch = await runVisualBatch({
   command: 'render',
   projectPath: './examples/urban-scenes',
+  artifactRootDir: './runs',
   providers: createDefaultProviders(),
   credentials: {
     openai: {
@@ -244,7 +248,7 @@ import {
 Each run writes a dedicated artifact directory:
 
 ```text
-artifacts/
+runs/
   2026-04-25T12-00-00Z__night-market-courier/
     manifest.json
     prompt.txt

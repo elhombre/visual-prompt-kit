@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 
 import { parseJsonc } from './jsonc.js'
-import type { GenerationConfig, GenerationProfile, LoadedProject, ParameterCatalog, ProjectConfig } from './types.js'
+import type { GenerationConfig, GenerationProfile, LoadedProject, OutputConfig, ParameterCatalog, ProjectConfig } from './types.js'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -83,6 +83,20 @@ function parseGenerationConfig(value: unknown, path: string): GenerationConfig |
   }
 }
 
+function parseOutputConfig(value: unknown, path: string): OutputConfig | undefined {
+  if (value === undefined) {
+    return undefined
+  }
+
+  if (!isRecord(value)) {
+    throw new Error(`Expected object at ${path}.`)
+  }
+
+  return {
+    dir: expectString(value.dir, `${path}.dir`),
+  }
+}
+
 function parseProjectConfig(value: unknown, filePath: string): ProjectConfig {
   if (!isRecord(value)) {
     throw new Error(`Expected object in ${filePath}.`)
@@ -110,7 +124,7 @@ function parseProjectConfig(value: unknown, filePath: string): ProjectConfig {
       value.parameterCatalogFile === undefined
         ? undefined
         : expectString(value.parameterCatalogFile, `${filePath}:parameterCatalogFile`),
-    artifactsDir: expectString(value.artifactsDir, `${filePath}:artifactsDir`),
+    output: parseOutputConfig(value.output, `${filePath}:output`),
     generation: parseGenerationConfig(value.generation, `${filePath}:generation`),
     uniqueness: uniquenessValue === undefined ? undefined : { enabled, lookback },
   }
@@ -156,7 +170,7 @@ export async function loadProject(projectPath: string): Promise<LoadedProject> {
   return {
     filePath,
     dirPath,
-    artifactsDir: resolve(dirPath, config.artifactsDir),
+    outputDir: resolve(dirPath, config.output?.dir ?? './artifacts'),
     config,
     metaPrompt,
     parameterCatalog,

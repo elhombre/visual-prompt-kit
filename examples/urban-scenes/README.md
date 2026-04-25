@@ -11,5 +11,5 @@ vpk prompt --project ./examples/urban-scenes --set subject="a night market couri
 Try rendering:
 
 ```bash
-vpk render --project ./examples/urban-scenes --count 2 --images 2
+vpk render --project ./examples/urban-scenes --output ./runs --count 2 --images 2
 ```

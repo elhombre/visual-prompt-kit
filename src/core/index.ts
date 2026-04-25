@@ -25,6 +25,7 @@ export type {
   ImageProviderRequest,
   ImageProviderResult,
   LoadedProject,
+  OutputConfig,
   ParameterCatalog,
   PreparedPromptGeneration,
   PreparePromptGenerationInput,

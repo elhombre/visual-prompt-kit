@@ -2,7 +2,9 @@
   "id": "urban-scenes",
   "metaPromptFile": "./meta-prompt.md",
   "parameterCatalogFile": "./parameter-catalog.jsonc",
-  "artifactsDir": "./artifacts",
+  "output": {
+    "dir": "./artifacts"
+  },
   "generation": {
     "defaultProfile": "gemini",
     "profiles": {

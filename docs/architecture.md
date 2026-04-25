@@ -21,10 +21,13 @@ project/
   project.jsonc
   meta-prompt.md
   parameter-catalog.jsonc
-  artifacts/
 ```
 
-`meta-prompt.md` contains placeholders such as `{{subject}}`. `parameter-catalog.jsonc` maps each placeholder to an array of possible values. `project.jsonc` points to both files and declares generation profiles.
+`meta-prompt.md` contains placeholders such as `{{subject}}`. `parameter-catalog.jsonc` maps each placeholder to an array of possible values. `project.jsonc` points to both files, declares generation profiles, and may define a library default output directory through `output.dir`.
+
+For CLI usage, artifact directories are created in the current working directory by default. `--output <dir>` overrides that root for both single and batch runs.
+
+For library usage, artifact directories are created under `artifactRootDir` when passed to `runVisualGeneration()` or `runVisualBatch()`. If no override is passed, the library uses `project.output.dir`, resolved relative to `project.jsonc`.
 
 ## Generation Profiles
 
@@ -94,6 +97,12 @@ The CLI exposes these as:
 
 ```bash
 vpk render --count 5 --images 3
+```
+
+Use `--output <dir>` to place all artifact directories under a specific root:
+
+```bash
+vpk render --output ./runs --count 5 --images 3
 ```
 
 ## Artifact Manifest

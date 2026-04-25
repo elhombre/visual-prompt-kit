@@ -36,6 +36,7 @@ export async function runVisualGeneration(input: RunVisualGenerationInput): Prom
   const imagesPerArtifact = positiveInteger(input.imagesPerArtifact, 1, 'imagesPerArtifact')
   const prepared = await preparePromptGeneration({
     projectPath: input.projectPath,
+    artifactRootDir: input.artifactRootDir,
     overrides: input.parameterOverrides,
     unique: input.unique,
     uniqueLookback: input.uniqueLookback,
@@ -49,7 +50,7 @@ export async function runVisualGeneration(input: RunVisualGenerationInput): Prom
 
   const createdAt = new Date()
   const slug = getArtifactSlug(input.name, prepared.resolved.params, prepared.project.config.id)
-  const artifact = await createArtifactDirectory(prepared.project.artifactsDir, createdAt, slug)
+  const artifact = await createArtifactDirectory(input.artifactRootDir ?? prepared.project.outputDir, createdAt, slug)
   const requestedImages = input.command === 'render' ? imagesPerArtifact : 0
 
   let resolvedPrompt = ''
