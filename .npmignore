@@ -1,4 +1,7 @@
-examples/**/artifacts
+.env
 .npm-cache
-node_modules
 *.tgz
+examples/**/artifacts
+node_modules
+src
+tsconfig.json

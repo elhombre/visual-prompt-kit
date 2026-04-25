@@ -41,8 +41,6 @@
     "examples/**/*.md",
     "examples/**/*.jsonc",
     "examples/.env.example",
-    "src",
-    "tsconfig.json",
     "README.md",
     "LICENSE"
   ],
