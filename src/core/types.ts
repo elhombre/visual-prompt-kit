@@ -253,6 +253,22 @@ export interface RunVisualGenerationInput {
   onRetry?: (event: RenderRetryEvent) => void
 }
 
+export interface RunImageGenerationFromPromptInput {
+  prompt: string
+  projectPath: string
+  artifactRootDir?: string
+  parameterOverrides?: Record<string, string>
+  profileOverrides?: GenerationProfileOverrides
+  providers: ProviderRegistry
+  credentials?: Record<string, unknown>
+  proxyUrl?: string
+  name?: string
+  imagesPerArtifact?: number
+  renderAttempts?: number
+  renderRetryDelayMs?: number
+  onRetry?: (event: RenderRetryEvent) => void
+}
+
 export interface VisualGenerationRunResult {
   artifactDirectory: string
   artifactDirectoryName: string

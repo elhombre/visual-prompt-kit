@@ -5,7 +5,7 @@ export {
   listArtifactManifests,
 } from './artifacts.js'
 export { loadProject } from './config.js'
-export { runVisualBatch, runVisualGeneration } from './generation.js'
+export { runImageGenerationFromPrompt, runVisualBatch, runVisualGeneration } from './generation.js'
 export { parseJsonc } from './jsonc.js'
 export { createRunManifest } from './manifest.js'
 export { extractPlaceholderNames, resolveParameters } from './params.js'
@@ -38,6 +38,7 @@ export type {
   RenderRetryEvent,
   ResolvedGenerationProfile,
   ResolvedPromptContext,
+  RunImageGenerationFromPromptInput,
   RunManifest,
   RunStatus,
   RunVisualBatchInput,

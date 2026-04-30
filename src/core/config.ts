@@ -29,6 +29,10 @@ function expectOptionalString(value: unknown, path: string): string | undefined 
     return undefined
   }
 
+  if (typeof value === 'string' && value.trim().length === 0) {
+    return undefined
+  }
+
   return expectString(value, path)
 }
 

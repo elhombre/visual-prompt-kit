@@ -137,6 +137,17 @@ Render retries are applied to the prompt step and then per requested image. With
 vpk render --output ./runs --count 20 --images 2 --render-attempts 5 --render-retry-delay-ms 3000
 ```
 
+## Staged Library Rendering
+
+Library callers that need prompt review or approval before image rendering can split the workflow into two calls:
+
+1. call `runVisualGeneration({ command: 'prompt', ... })` to generate and persist the final prompt;
+2. call `runImageGenerationFromPrompt({ prompt, ... })` to render images from that exact prompt.
+
+`runImageGenerationFromPrompt()` intentionally has no CLI equivalent. It is an integration helper for applications that manage their own staged UI. The function resolves the project and generation profile, validates only the image provider, writes the supplied prompt to `prompt.txt`, renders the requested image files, and writes the same render manifest shape as `runVisualGeneration({ command: 'render', ... })`.
+
+Because no prompt generation happens in the second call, prompt retry events and uniqueness augmentation are not applied there. Image retry events still use the same `renderAttempts`, `renderRetryDelayMs`, and `onRetry` behavior as normal renders.
+
 ## Artifact Manifest
 
 Each artifact contains `manifest.json`, `prompt.txt`, and optionally image files. Status values are:

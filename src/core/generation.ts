@@ -11,6 +11,7 @@ import type {
   ResolvedGenerationProfile,
   RunManifest,
   RenderRetryEvent,
+  RunImageGenerationFromPromptInput,
   RunStatus,
   RunVisualBatchInput,
   RunVisualGenerationInput,
@@ -324,6 +325,122 @@ export async function runVisualGeneration(input: RunVisualGenerationInput): Prom
     uniquenessApplied: prepared.uniqueness.applied,
     uniquenessLookback: prepared.uniqueness.lookback,
     uniquenessSources: prepared.uniqueness.sources,
+    files: {
+      prompt: promptFileName,
+      images: imageFiles,
+    },
+    requestedImages: imagesPerArtifact,
+    generatedImages: imageFiles.length,
+    status,
+    errorMessage: imageError === undefined ? undefined : getErrorMessage(imageError),
+  })
+  await writeManifest(artifact.directoryPath, manifest)
+
+  if (imageError) {
+    throw imageError
+  }
+
+  return {
+    artifactDirectory: artifact.directoryPath,
+    artifactDirectoryName: artifact.directoryName,
+    manifest,
+  }
+}
+
+export async function runImageGenerationFromPrompt(
+  input: RunImageGenerationFromPromptInput,
+): Promise<VisualGenerationRunResult> {
+  const resolvedPrompt = input.prompt.trim()
+  if (resolvedPrompt.length === 0) {
+    throw new Error('prompt must not be empty.')
+  }
+
+  const imagesPerArtifact = positiveInteger(input.imagesPerArtifact, 1, 'imagesPerArtifact')
+  const prepared = await preparePromptGeneration({
+    projectPath: input.projectPath,
+    artifactRootDir: input.artifactRootDir,
+    overrides: input.parameterOverrides,
+  })
+  const profile = resolveGenerationProfile(prepared.project.config, input.profileOverrides)
+  const imageProvider = input.providers[profile.image.provider]
+
+  if (!imageProvider) {
+    throw new Error(`Unsupported image provider "${profile.image.provider}".`)
+  }
+
+  const createdAt = new Date()
+  const slug = getArtifactSlug(input.name, prepared.resolved.params, prepared.project.config.id)
+  const artifact = await createArtifactDirectory(input.artifactRootDir ?? prepared.project.outputDir, createdAt, slug)
+  const renderAttempts = positiveInteger(
+    input.renderAttempts ?? prepared.project.config.generation?.renderAttempts,
+    DEFAULT_RENDER_ATTEMPTS,
+    'renderAttempts',
+  )
+  const renderRetryDelayMs = nonNegativeInteger(
+    input.renderRetryDelayMs ?? prepared.project.config.generation?.renderRetryDelayMs,
+    DEFAULT_RENDER_RETRY_DELAY_MS,
+    'renderRetryDelayMs',
+  )
+
+  const promptFileName = 'prompt.txt'
+  await writeFile(resolve(artifact.directoryPath, promptFileName), `${resolvedPrompt}\n`, 'utf8')
+
+  const imageFiles: string[] = []
+  let images: GeneratedImage[] = []
+  let imageError: unknown
+
+  try {
+    for (let imageIndex = 0; imageIndex < imagesPerArtifact; imageIndex += 1) {
+      images.push(
+        await generateImageWithAttempts({
+          provider: imageProvider,
+          model: profile.image.model,
+          prompt: resolvedPrompt,
+          profile,
+          imageIndex,
+          providerName: profile.image.provider,
+          renderAttempts,
+          renderRetryDelayMs,
+          onRetry: input.onRetry,
+          providerOptions: profile.image.options,
+          credentials: input.credentials?.[profile.image.provider],
+          proxyUrl: input.proxyUrl,
+        }),
+      )
+    }
+  } catch (error) {
+    imageError = error
+  }
+
+  for (const [index, image] of images.entries()) {
+    const imageFileName = `image-${index + 1}.${imageExtension(image.format)}`
+    await writeFile(resolve(artifact.directoryPath, imageFileName), Buffer.from(image.bytes))
+    imageFiles.push(imageFileName)
+  }
+
+  let status: RunStatus = 'success'
+  if (imageError) {
+    status = imageFiles.length > 0 ? 'partial-success' : 'image-generation-failed'
+  } else if (imageFiles.length < imagesPerArtifact) {
+    status = imageFiles.length > 0 ? 'partial-success' : 'image-generation-failed'
+    imageError = new Error(`Provider returned ${imageFiles.length} image(s), expected ${imagesPerArtifact}.`)
+  }
+
+  const manifest = createRunManifest({
+    projectId: prepared.project.config.id,
+    command: 'render',
+    createdAt,
+    params: prepared.resolved.params,
+    randomlySelected: prepared.resolved.randomlySelected,
+    resolvedPrompt,
+    profile,
+    format: profile.format,
+    size: profile.size,
+    background: profile.background,
+    quality: profile.quality,
+    uniquenessApplied: false,
+    uniquenessLookback: 0,
+    uniquenessSources: [],
     files: {
       prompt: promptFileName,
       images: imageFiles,

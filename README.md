@@ -205,6 +205,7 @@ Main import:
 ```ts
 import {
   createDefaultProviders,
+  runImageGenerationFromPrompt,
   runVisualBatch,
   runVisualGeneration,
 } from 'visual-prompt-kit'
@@ -244,6 +245,50 @@ const result = await runVisualGeneration({
 
 console.log(result.artifactDirectory)
 ```
+
+Render from a prompt generated earlier:
+
+```ts
+const promptRun = await runVisualGeneration({
+  command: 'prompt',
+  projectPath: './examples/urban-scenes',
+  artifactRootDir: './runs',
+  parameterOverrides: {
+    subject: 'rain-soaked bicycle courier',
+  },
+  profileOverrides: {
+    profileName: 'editorial-cover',
+  },
+  providers: createDefaultProviders(),
+  credentials: {
+    openai: {
+      apiKey: process.env.OPENAI_API_KEY,
+    },
+  },
+})
+
+const renderRun = await runImageGenerationFromPrompt({
+  prompt: promptRun.manifest.resolvedPrompt,
+  projectPath: './examples/urban-scenes',
+  artifactRootDir: './runs',
+  parameterOverrides: promptRun.manifest.params,
+  profileOverrides: {
+    profileName: 'editorial-cover',
+  },
+  providers: createDefaultProviders(),
+  credentials: {
+    gemini: {
+      project: process.env.GOOGLE_CLOUD_PROJECT,
+      location: 'global',
+    },
+  },
+  imagesPerArtifact: 1,
+})
+
+console.log(renderRun.manifest.files.images)
+```
+
+`runImageGenerationFromPrompt()` is a library-only helper for staged integrations. It does not call the prompt provider and does not add a CLI command. The artifact still uses the normal render manifest shape and writes the supplied text to `prompt.txt`, so consumers can treat the result like any other render artifact.
 
 Run a batch:
 
