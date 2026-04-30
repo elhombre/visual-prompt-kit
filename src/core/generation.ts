@@ -52,7 +52,21 @@ async function sleep(ms: number): Promise<void> {
 }
 
 function getErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
+  if (!(error instanceof Error)) {
+    return String(error)
+  }
+
+  const messages = [error.message]
+  let cause: unknown = error.cause
+
+  while (cause instanceof Error) {
+    if (cause.message && !messages.includes(cause.message)) {
+      messages.push(cause.message)
+    }
+    cause = cause.cause
+  }
+
+  return messages.join(': ')
 }
 
 async function writeManifest(directoryPath: string, manifest: RunManifest): Promise<void> {
@@ -204,13 +218,14 @@ export async function runVisualGeneration(input: RunVisualGenerationInput): Prom
   let resolvedPrompt = ''
 
   try {
+    const promptAttempts = input.command === 'render' || input.renderAttempts !== undefined ? renderAttempts : 1
     resolvedPrompt = await generatePromptWithAttempts({
       provider: promptProvider,
       model: profile.prompt.model,
       providerInput: prepared.providerInput,
       profile,
       providerName: profile.prompt.provider,
-      attempts: input.command === 'render' ? renderAttempts : 1,
+      attempts: promptAttempts,
       retryDelayMs: renderRetryDelayMs,
       onRetry: input.onRetry,
       providerOptions: profile.prompt.options,

@@ -83,7 +83,7 @@ Profile names describe the output preset rather than the provider implementation
 
 Provider-specific fields belong in `prompt.options` or `image.options`. Top-level `options` are merged into both stages. The legacy `provider`, `promptModel`, `imageModel`, and `model` fields are still accepted and normalized into the stage-based shape.
 
-`renderAttempts` and `renderRetryDelayMs` define the render retry policy. They apply to prompt generation during the `render` command and to each requested image. The `prompt` command still performs a single prompt generation request. Defaults are `3` attempts and `2000` milliseconds.
+`renderAttempts` and `renderRetryDelayMs` define the render retry policy. They apply to prompt generation during the `render` command and to each requested image. The `prompt` command performs a single prompt generation request unless a library caller explicitly passes `renderAttempts`. Defaults are `3` attempts and `2000` milliseconds.
 
 The core API stays silent by default. Consumers that need diagnostics can pass `onRetry` to receive retry events; the CLI uses this hook to print retry notices to stderr. Retry events include the provider used by the failed stage. Batch retry events include `artifactIndex` and `artifactCount` so logs can be tied back to a specific artifact.
 
