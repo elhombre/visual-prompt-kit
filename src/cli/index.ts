@@ -266,6 +266,10 @@ function buildCredentials(): Record<string, unknown> {
       apiKey: process.env.OPENAI_API_KEY,
       baseUrl: process.env.OPENAI_BASE_URL,
     },
+    openrouter: {
+      apiKey: process.env.OPENROUTER_API_KEY,
+      baseUrl: process.env.OPENROUTER_BASE_URL,
+    },
   }
 }
 
@@ -304,8 +308,18 @@ async function buildProfileOverrides(
 
   const project = await loadProject(projectPath)
   const resolved = resolveGenerationProfile(project.config, base)
-  const promptModel = resolved.prompt.provider === 'openai' ? process.env.OPENAI_PROMPT_MODEL : undefined
-  const imageModel = resolved.image.provider === 'openai' ? process.env.OPENAI_IMAGE_MODEL : undefined
+  const promptModel =
+    resolved.prompt.provider === 'openai'
+      ? process.env.OPENAI_PROMPT_MODEL
+      : resolved.prompt.provider === 'openrouter'
+        ? process.env.OPENROUTER_PROMPT_MODEL
+        : undefined
+  const imageModel =
+    resolved.image.provider === 'openai'
+      ? process.env.OPENAI_IMAGE_MODEL
+      : resolved.image.provider === 'openrouter'
+        ? process.env.OPENROUTER_IMAGE_MODEL
+        : undefined
 
   if (promptModel || imageModel) {
     return {
